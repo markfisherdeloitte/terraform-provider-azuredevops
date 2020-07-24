@@ -13,6 +13,7 @@ import (
 
 type autoReviewerPolicySettings struct {
 	SubmitterCanVote bool     `json:"creatorVoteCounts"`
+	ApprovalCount    int      `json:"minimumApproverCount"`
 	AutoReviewerIds  []string `json:"requiredReviewerIds"`
 	PathFilters      []string `json:"filenamePatterns"`
 	DisplayMessage   string   `json:"message"`
@@ -60,6 +61,13 @@ func ResourceBranchPolicyAutoReviewers() *schema.Resource {
 		Default:  false,
 		Optional: true,
 	}
+	settingsSchema[schemaReviewerCount] = &schema.Schema{
+		Type:         schema.TypeInt,
+		Required:     false,
+		Default:      0,
+		Optional:     true,
+		ValidateFunc: validation.IntAtLeast(1),
+	}
 
 	return resource
 }
@@ -84,6 +92,7 @@ func autoReviewersFlattenFunc(d *schema.ResourceData, policyConfig *policy.Polic
 	settings := settingsList[0].(map[string]interface{})
 
 	settings[schemaSubmitterCanVote] = policySettings.SubmitterCanVote
+	settings[schemaReviewerCount] = policySettings.ApprovalCount
 	settings[autoReviewerIds] = policySettings.AutoReviewerIds
 	settings[pathFilters] = policySettings.PathFilters
 	settings[displayMessage] = policySettings.DisplayMessage
@@ -102,6 +111,9 @@ func autoReviewersExpandFunc(d *schema.ResourceData, typeID uuid.UUID) (*policy.
 
 	policySettings := policyConfig.Settings.(map[string]interface{})
 	policySettings["creatorVoteCounts"] = settings[schemaSubmitterCanVote].(bool)
+	if rc, ok := settings[schemaReviewerCount].(int); ok && rc > 0 {
+		policySettings["minimumApproverCount"] = rc
+	}
 	policySettings["message"] = settings[displayMessage].(string)
 
 	if value, ok := settings[autoReviewerIds]; ok {
